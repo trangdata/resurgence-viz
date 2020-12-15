@@ -1,0 +1,137 @@
+---
+title: "Visualize resurgence analysis results"
+output: html_document
+---
+
+```{r}
+library(tidyverse)
+library(rcartocolor)
+theme_set(theme_minimal())
+source('geoms.R')
+```
+
+```{r}
+load('results/lab_trajectory_waves_standardized_by_earlyday0.Rda')
+load('results/risk_prediction.Rda')
+```
+
+```{r eval=FALSE, include=FALSE}
+res.all.lab %>% 
+  filter(setting != 'all', scale == 'original',
+         setting == 'ever') %>% 
+  select(- contains('CI'), - se, - total_n) %>% 
+  pivot_wider(names_from = 'wave', values_from = 'mean') %>% 
+  mutate(diff = abs(late - early),
+         Lab = fct_reorder(Lab, diff) %>% fct_rev()) %>% 
+  pivot_longer(c(early, late), names_to = 'wave', values_to = 'mean_val') %>% 
+  ggplot(aes(y = mean_val, x = days_since_positive, color = Lab)) +
+  geom_line(aes(linetype = wave)) + 
+  facet_wrap(~ Lab) +
+  scale_color_viridis_d(end = 0.9, guide = FALSE) +
+  gghighlight::gghighlight(
+    use_direct_label = FALSE,
+    unhighlighted_params = list(size = 0.5, colour = alpha("grey", 0.4))) +
+  theme(panel.grid = element_blank()) +
+  NULL
+```
+
+```{r fig.height=7, fig.width=12}
+labs_by_days <- res.all.lab %>% 
+  filter(setting != 'all', scale == 'original') %>% 
+  select(- contains('CI'), - se, - total_n) %>% 
+  pivot_wider(names_from = 'wave', values_from = 'mean') %>% 
+  mutate(diff = abs(late - early),
+         Lab = fct_reorder(Lab, diff) %>% fct_rev()) %>% 
+  pivot_longer(c(early, late), names_to = 'wave', values_to = 'mean_val') %>% 
+  ggplot(aes(y = mean_val, x = days_since_positive, 
+             color = setting, linetype = wave,
+             group = interaction(Lab, wave, setting))) +
+  geom_line(aes()) + 
+  facet_wrap(~ Lab) +
+  scale_color_carto_d() +
+  gghighlight::gghighlight(
+    use_direct_label = FALSE,
+    unhighlighted_params = list(size = 0.5, colour = alpha("grey", 0.1))) +
+  theme(panel.grid = element_blank()) +
+  NULL
+labs_by_days
+ggsave('figs/lab-by-days.png', labs_by_days)
+```
+
+```{r}
+df = res.wave %>% 
+  filter(setting != 'all', scale == 'original',
+         setting == 'ever', days_since_positive %in% c(0, 1, 7)) %>% 
+  select(- total_n) %>% 
+  pivot_wider(names_from = 'wave', values_from = 'mean') %>% 
+  mutate(diff = abs(late - early),
+         Lab = fct_reorder(Lab, diff) %>% fct_rev()) %>% 
+  {.}
+
+wave_arrows <- df %>% 
+  mutate(
+    diff = abs(late - early),
+    days_since_positive = days_since_positive %>% 
+      as_factor() %>% 
+      fct_recode(
+        'Day 0' = '0',
+        'Day 1' = '1',
+        'Average days 1-7' = '7',
+      ) %>% 
+      fct_relevel(rev(c('Day 0', 'Day 1', 'Average days 1-7'))),
+    Lab = as_factor(Lab)%>% 
+      fct_reorder(diff)) %>% 
+  ggplot(aes(y = Lab, fill = days_since_positive)) +
+  geom_arrowbar(aes(xmin = early, x = late), 
+                column_width = 0.14, head_width = 0.07,
+                head_length = 0.2,
+                position = position_dodge(width = 0.7)) +
+  scale_fill_carto_d(guide = guide_legend(reverse = T)) +
+  labs(fill = NULL,y = NULL, x = 'Mean lab value',
+       title = 'Mean lab value from early wave to late wave') +
+  theme(panel.grid.minor = element_blank(),
+        plot.title.position = "plot",
+        legend.position = c(0.8, 0.2)) +
+  NULL
+
+wave_arrows
+ggsave('figs/wave-arrows.png', wave_arrows,
+       height = 7, width = 8)
+
+```
+
+Labs_all is a combination of CRP+D-dimer+albumin
+```{r}
+risk_scores <- risk_contribution_MGB %>%
+  mutate(setting = fct_recode(
+    setting,
+    'All patients' = 'all',
+    'Ever-severe patients' = 'ever'
+  ),
+  wave = fct_recode(
+    wave,
+    'Early wave' = 'early',
+    'Late wave' = 'late'
+  )) %>%
+  ggplot(aes(
+    x = wave,
+    y = risk,
+    color = category,
+    linetype = setting,
+    group = interaction(category, setting)
+  )) +
+  geom_line() +
+  scale_color_carto_d() +
+  labs(
+    x = NULL,
+    y = 'Risk score',
+    color = NULL,
+    linetype = NULL
+  ) +
+  theme(panel.grid.minor = element_blank(),
+        panel.grid.major.x = element_blank())
+risk_scores
+ggsave('figs/risk_score.png', risk_scores,
+       height = 3, width = 6)
+```
+
