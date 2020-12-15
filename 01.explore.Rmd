@@ -14,6 +14,7 @@ source('geoms.R')
 ```{r}
 load('results/lab_trajectory_waves_standardized_by_earlyday0.Rda')
 load('results/risk_prediction.Rda')
+load('results/labs_observations.Rda')
 ```
 
 ```{r eval=FALSE, include=FALSE}
@@ -117,6 +118,10 @@ risk_scores <- risk_contribution_MGB %>%
     wave,
     'Early wave' = 'early',
     'Late wave' = 'late'
+  ),
+  category = fct_recode(
+    category,
+    'age + gender' = 'demographics:age_gender'
   )) %>%
   ggplot(aes(
     x = wave,
@@ -126,17 +131,53 @@ risk_scores <- risk_contribution_MGB %>%
     group = interaction(category, setting)
   )) +
   geom_line() +
-  scale_color_carto_d() +
+  scale_color_carto_d(guide = FALSE) +
   labs(
     x = NULL,
     y = 'Risk score',
     color = NULL,
     linetype = NULL
   ) +
+  geom_text(data = . %>% filter(wave == 'Late wave', setting == 'All patients'),
+            aes(label = category), hjust = -0.1, vjust = 0.2) +
   theme(panel.grid.minor = element_blank(),
         panel.grid.major.x = element_blank())
 risk_scores
 ggsave('figs/risk_score.png', risk_scores,
        height = 3, width = 6)
+```
+
+```{r include=FALSE}
+# per_lab %>%
+#   mutate(obs_bin = cut(
+#     n_obs, 
+#     breaks = c(0:15, 20, 30, max(n_obs)))) %>% 
+#   group_by(lab, obs_bin) %>% 
+#   summarise(both_severities = sum(both_severities), 
+#             severe = sum(severe), 
+#             nonsevere = sum(nonsevere), 
+#             .groups = 'drop') %>% 
+#   select(lab, obs_bin, both_severities, severe, nonsevere) %>% 
+#   pivot_longer(c(both_severities, severe, nonsevere)) %>% 
+#   mutate(name = name %>% fct_recode(
+#     'All patients' = 'both_severities',
+#     'Severe patients' = 'severe',
+#     'Non-severe patients' = 'nonsevere'
+#   )) %>% 
+
+# lab.prop.early.all %>% 
+#   ggplot(aes(x = obs_bin, fill = value, y = fct_reorder(lab, value))) + 
+#   geom_tile(colour = "white", size = 0.2) +
+#   geom_text(aes(label = value), colour = "white", size = 2) +
+#   scale_y_discrete(expand = c(0, 0))+
+#   scale_fill_gradient(low = "lightgrey", high = "darkblue") +
+#   facet_wrap(~ name, nrow = 1) +
+#   labs(x = 'Binned number of values a patient has for each lab',
+#        y = NULL, fill = '# patients') +
+#   theme(panel.grid.major = element_blank(),
+#         legend.position = c(0.93, 0.2),
+#         axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),
+#         axis.ticks.y = element_blank()
+#   )
 ```
 
