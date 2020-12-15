@@ -1,0 +1,4 @@
+html_document:
+  theme: cosmo
+  code_download: true
+  highlight: tango
